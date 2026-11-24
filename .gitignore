@@ -1,0 +1,11 @@
+# 원본 데이터 제외 (과제 필수 규칙)
+data/raw/
+*.csv
+*.zip
+
+# 파이썬 및 환경 설정 파일 제외
+__pycache__/
+venv/
+.venv/
+.env
+.DS_Store
