@@ -11,7 +11,7 @@ DB_CONFIG = {
     "port": int(os.getenv("DB_PORT", "5432")),
     "dbname": os.getenv("DB_NAME", "movies_db"),          # Replace with your actual DB name
     "user": os.getenv("DB_USER", "postgres"),
-    "password": os.getenv("DB_PASSWORD", "your_password"),  # Replace with your actual password
+    "password": os.getenv("DB_PASSWORD", "chaejin0113@"),  # Replace with your actual password
     "options": "-c lc_messages=C",
 }
 
@@ -355,7 +355,7 @@ LIMIT 10;
                 )
 
 # ==============================================================================
-# TAB 2: Sumin Hwang QUERIES
+# TAB 2: Chaejin Jung QUERIES
 # ==============================================================================
 with tab2:
     m2_c1, m2_c2 = st.columns(2)
