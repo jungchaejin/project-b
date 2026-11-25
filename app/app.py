@@ -44,7 +44,7 @@ def show_sql_table(cols, rows):
 
 
 def test_transaction_insert(test_rating):
-    """Chaejin Jung - Query 5: Execute INSERT ... RETURNING inside a transaction and immediately ROLLBACK."""
+    """Sumin Hwang - Query 5: Execute INSERT ... RETURNING inside a transaction and immediately ROLLBACK."""
     sql_insert = """
         WITH new_rating AS (
             SELECT
@@ -126,18 +126,18 @@ top_n_limit = st.sidebar.slider("Top N Limit (M1-Q2, Q3, Q4)", 3, 20, 10)
 min_genre_movies = st.sidebar.slider("Min Sample Size per Genre (M2)", 10, 300, 50, step=10)
 decade_range = st.sidebar.slider("Decade Range (M2-Q5)", 1920, 2010, (1950, 2010), step=10)
 
-# Tabs: Chaejin Jung / Sumin Hwang
-tab1, tab2 = st.tabs(["📊 Chaejin Jung Queries (Q1 – Q5)", "📈 Sumin Hwang Queries (Q1 – Q5)"])
+# Tabs: Sumin Hwang / Chaejin Jung
+tab1, tab2 = st.tabs(["📊 Sumin Hwang Queries (Q1 – Q5)", "📈 Chaejin Jung Queries (Q1 – Q5)"])
 
 # ==============================================================================
-# TAB 1: Chaejin Jung QUERIES
+# TAB 1: Sumin Hwang QUERIES
 # ==============================================================================
 with tab1:
     c1, c2 = st.columns(2)
 
     # --- M1 Query 1: Average Rating by Movie Genre ---
     with c1:
-        st.subheader(f"Q1. Average Rating by Movie Genre (Min {min_rating_cnt} Ratings)")
+        st.subheader(f"Q1. Average Rating by Movie Genre")
         sql_m1_q1 = """
             SELECT
                 g.name AS genre,
@@ -147,7 +147,6 @@ with tab1:
             JOIN movie_genres mg ON g.genre_id = mg.genre_id
             JOIN ratings r ON mg.tmdb_id = r.tmdb_id
             GROUP BY g.genre_id, g.name
-            HAVING COUNT(r.rating) >= %s
             ORDER BY average_rating DESC;
         """
         cols_m1_q1, rows_m1_q1 = run_query(sql_m1_q1, (min_rating_cnt,))
@@ -174,13 +173,13 @@ with tab1:
 
     # --- M1 Query 2: Movies Rated Above the Overall Average ---
     with c2:
-        st.subheader(f"Q2. Top {top_n_limit} Movies Above Overall Average (Min {min_rating_cnt} Ratings)")
+        st.subheader(f"Q2. Movies Above Overall Average")
         sql_m1_q2 = """
             SELECT
                 m.tmdb_id,
                 m.title,
-                COUNT(r.rating) AS total_ratings,
-                ROUND(AVG(r.rating), 2) AS average_rating
+            COUNT(r.rating) AS total_ratings,
+            ROUND(AVG(r.rating), 2) AS average_rating
             FROM movies m
             JOIN ratings r ON m.tmdb_id = r.tmdb_id
             GROUP BY m.tmdb_id, m.title
@@ -188,9 +187,9 @@ with tab1:
                 SELECT AVG(rating)
                 FROM ratings
             )
-            AND COUNT(r.rating) >= %s
+            AND COUNT(r.rating) >= 10
             ORDER BY average_rating DESC, total_ratings DESC
-            LIMIT %s;
+            LIMIT 20;
         """
         cols_m1_q2, rows_m1_q2 = run_query(sql_m1_q2, (min_rating_cnt, top_n_limit))
         if rows_m1_q2:
@@ -221,35 +220,34 @@ with tab1:
 
     # --- M1 Query 3: Ranking Movies Within Each Genre ---
     with c3:
-        st.subheader(f"Q3. Top {top_n_limit} Movies in '{selected_genre}' (Min {min_rating_cnt} Ratings)")
+        st.subheader(f"Q3. Ranking Movies Within Each Genre")
         sql_m1_q3 = """
             WITH ranked_genre_movies AS (
-                SELECT
-                    g.name AS genre,
-                    m.title,
-                    COUNT(r.rating) AS rating_count,
-                    ROUND(AVG(r.rating)::numeric, 2) AS average_rating,
-                    RANK() OVER (
-                        PARTITION BY g.name
-                        ORDER BY AVG(r.rating) DESC, COUNT(r.rating) DESC
-                    ) AS genre_rank
-                FROM movies m
-                JOIN ratings r ON m.tmdb_id = r.tmdb_id
-                JOIN movie_genres mg ON m.tmdb_id = mg.tmdb_id
-                JOIN genres g ON mg.genre_id = g.genre_id
-                WHERE g.name = %s
-                GROUP BY g.name, m.tmdb_id, m.title
-                HAVING COUNT(r.rating) >= %s
-            )
-            SELECT
-                genre,
-                genre_rank,
-                title,
-                rating_count,
-                average_rating
-            FROM ranked_genre_movies
-            WHERE genre_rank <= %s
-            ORDER BY genre, genre_rank, title;
+    SELECT
+        g.name AS genre,
+        m.title,
+        COUNT(r.rating) AS rating_count,
+        ROUND(AVG(r.rating)::numeric, 2) AS average_rating,
+        RANK() OVER (
+            PARTITION BY g.name
+            ORDER BY AVG(r.rating) DESC, COUNT(r.rating) DESC
+        ) AS genre_rank
+    FROM movies m
+    JOIN ratings r ON m.tmdb_id = r.tmdb_id
+    JOIN movie_genres mg ON m.tmdb_id = mg.tmdb_id
+    JOIN genres g ON mg.genre_id = g.genre_id
+    GROUP BY g.name, m.tmdb_id, m.title
+    HAVING COUNT(r.rating) >= 20  
+)
+SELECT
+    genre,
+    genre_rank,
+    title,
+    rating_count,
+    average_rating
+FROM ranked_genre_movies
+WHERE genre_rank <= 5  
+ORDER BY genre, genre_rank, title;
         """
         cols_m1_q3, rows_m1_q3 = run_query(
             sql_m1_q3, (selected_genre, min_rating_cnt, top_n_limit)
@@ -279,23 +277,23 @@ with tab1:
 
     # --- M1 Query 4: Most Active Users Using a CTE ---
     with c4:
-        st.subheader(f"Q4. Top {top_n_limit} Most Active Users (CTE)")
+        st.subheader(f"Q4. Most Active Users (CTE)")
         sql_m1_q4 = """
             WITH user_activity AS (
-                SELECT
-                    user_id,
-                    COUNT(*) AS ratings_given,
-                    ROUND(AVG(rating), 2) AS average_rating
-                FROM ratings
-                GROUP BY user_id
-            )
-            SELECT
-                user_id,
-                ratings_given,
-                average_rating
-            FROM user_activity
-            ORDER BY ratings_given DESC
-            LIMIT %s;
+    SELECT
+        user_id,
+        COUNT(*) AS ratings_given,
+        ROUND(AVG(rating), 2) AS average_rating
+    FROM ratings
+    GROUP BY user_id
+)
+SELECT
+    user_id,
+    ratings_given,
+    average_rating
+FROM user_activity
+ORDER BY ratings_given DESC
+LIMIT 10;
         """
         cols_m1_q4, rows_m1_q4 = run_query(sql_m1_q4, (top_n_limit,))
         if rows_m1_q4:
@@ -367,17 +365,17 @@ with tab2:
         st.subheader("Q1. Average Production Budget Rank by Genre")
         sql_m2_q1 = """
             SELECT
-                RANK() OVER (ORDER BY AVG(movies.budget) DESC) AS budget_rank,
-                genres.name AS genre_name,
-                COUNT(movies.tmdb_id) AS movie_count,
-                ROUND(AVG(movies.budget), 2) AS avg_budget
-            FROM movies
-            JOIN movie_genres ON movies.tmdb_id = movie_genres.tmdb_id
-            JOIN genres ON movie_genres.genre_id = genres.genre_id
-            WHERE movies.budget IS NOT NULL
-            GROUP BY genres.genre_id, genres.name
-            HAVING COUNT(movies.tmdb_id) >= %s
-            ORDER BY avg_budget DESC;
+    RANK() OVER (ORDER BY AVG(movies.budget) DESC) AS budget_rank,
+    genres.name,
+    COUNT(movies.tmdb_id) AS movie_count,
+    ROUND(AVG(movies.budget), 2) AS avg_budget
+FROM movies
+JOIN movie_genres ON movies.tmdb_id = movie_genres.tmdb_id
+JOIN genres ON movie_genres.genre_id = genres.genre_id
+WHERE movies.budget IS NOT NULL
+GROUP BY genres.genre_id, genres.name
+ORDER BY avg_budget DESC;
+
         """
         cols_m2_q1, rows_m2_q1 = run_query(sql_m2_q1, (min_genre_movies,))
         if rows_m2_q1:
@@ -407,29 +405,30 @@ with tab2:
         st.subheader("Q2. Most Frequent Actor per Genre (#1 Rank)")
         sql_m2_q2 = """
             WITH actor_genre_counts AS (
-                SELECT
-                    g.name AS genre_name,
-                    p.person_id,
-                    p.name AS actor_name,
-                    COUNT(DISTINCT mc.tmdb_id) AS movie_count,
-                    RANK() OVER (
-                        PARTITION BY g.genre_id
-                        ORDER BY COUNT(DISTINCT mc.tmdb_id) DESC
-                    ) AS rnk
-                FROM genres g
-                JOIN movie_genres mg ON g.genre_id = mg.genre_id
-                JOIN movie_credits mc ON mg.tmdb_id = mc.tmdb_id
-                JOIN people p ON mc.person_id = p.person_id
-                WHERE mc.role_type = 'cast'
-                GROUP BY g.genre_id, g.name, p.person_id, p.name
-            )
-            SELECT
-                genre_name,
-                actor_name,
-                movie_count
-            FROM actor_genre_counts
-            WHERE rnk = 1
-            ORDER BY movie_count DESC, genre_name ASC;
+    SELECT
+        g.name AS genre_name,
+        p.person_id,
+        p.name AS actor_name,
+        COUNT(DISTINCT mc.tmdb_id) AS movie_count,
+        RANK() OVER (
+            PARTITION BY g.genre_id
+            ORDER BY COUNT(DISTINCT mc.tmdb_id) DESC
+        ) AS rnk
+    FROM genres g
+    JOIN movie_genres mg ON g.genre_id = mg.genre_id
+    JOIN movie_credits mc ON mg.tmdb_id = mc.tmdb_id
+    JOIN people p ON mc.person_id = p.person_id
+    WHERE mc.role_type = 'cast'
+    GROUP BY g.genre_id, g.name, p.person_id, p.name
+)
+SELECT
+    genre_name,
+    actor_name,
+    movie_count
+FROM actor_genre_counts
+WHERE rnk = 1
+ORDER BY genre_name ASC, movie_count DESC, actor_name ASC;
+
         """
         cols_m2_q2, rows_m2_q2 = run_query(sql_m2_q2)
         if rows_m2_q2:
@@ -460,17 +459,17 @@ with tab2:
         st.subheader("Q3. Average Popularity by Movie Genre")
         sql_m2_q3 = """
             SELECT
-                RANK() OVER (ORDER BY AVG(m.popularity) DESC) AS popularity_rank,
-                g.name AS genre_name,
-                COUNT(m.tmdb_id) AS movie_count,
-                ROUND(AVG(m.popularity), 2) AS avg_popularity
-            FROM genres g
-            JOIN movie_genres mg ON g.genre_id = mg.genre_id
-            JOIN movies m ON mg.tmdb_id = m.tmdb_id
-            WHERE m.popularity IS NOT NULL
-            GROUP BY g.genre_id, g.name
-            HAVING COUNT(m.tmdb_id) >= %s
-            ORDER BY popularity_rank ASC;
+    RANK() OVER (ORDER BY AVG(m.popularity) DESC) AS popularity_rank,
+    g.name AS genre_name,
+    COUNT(m.tmdb_id) AS movie_count,
+    ROUND(AVG(m.popularity), 2) AS avg_popularity
+FROM genres g
+JOIN movie_genres mg ON g.genre_id = mg.genre_id
+JOIN movies m ON mg.tmdb_id = m.tmdb_id
+WHERE m.popularity IS NOT NULL
+GROUP BY g.genre_id, g.name
+ORDER BY popularity_rank ASC;
+
         """
         cols_m2_q3, rows_m2_q3 = run_query(sql_m2_q3, (min_genre_movies,))
         if rows_m2_q3:
@@ -498,26 +497,27 @@ with tab2:
         st.subheader("Q4. Female Cast Ratio by Genre (%)")
         sql_m2_q4 = """
             SELECT
-                RANK() OVER (
-                    ORDER BY
-                        COUNT(*) FILTER (WHERE p.gender = 1)::NUMERIC / COUNT(*) DESC
-                ) AS female_ratio_rank,
-                g.name AS genre_name,
-                COUNT(*) FILTER (WHERE p.gender = 1) AS female_cast_count,
-                COUNT(*) AS known_gender_cast_count,
-                ROUND(
-                    100.0 * COUNT(*) FILTER (WHERE p.gender = 1) / COUNT(*),
-                    2
-                ) AS female_ratio_pct
-            FROM genres g
-            JOIN movie_genres mg ON g.genre_id = mg.genre_id
-            JOIN movie_credits mc ON mg.tmdb_id = mc.tmdb_id
-            JOIN people p ON mc.person_id = p.person_id
-            WHERE mc.role_type = 'cast'
-              AND p.gender IN (1, 2, 3)
-            GROUP BY g.genre_id, g.name
-            HAVING COUNT(*) >= %s
-            ORDER BY female_ratio_rank ASC;
+    RANK() OVER (
+        ORDER BY
+            COUNT(*) FILTER (WHERE p.gender = 1)::NUMERIC / COUNT(*) DESC
+    ) AS female_ratio_rank,
+    g.name AS genre_name,
+    COUNT(*) FILTER (WHERE p.gender = 1) AS female_cast_count,
+    COUNT(*) AS known_gender_cast_count,
+    ROUND(
+        100.0 * COUNT(*) FILTER (WHERE p.gender = 1) / COUNT(*),
+        2
+    ) AS female_ratio_pct
+FROM genres g
+JOIN movie_genres mg ON g.genre_id = mg.genre_id
+JOIN movie_credits mc ON mg.tmdb_id = mc.tmdb_id
+JOIN people p ON mc.person_id = p.person_id
+WHERE mc.role_type = 'cast'
+  AND p.gender IN (1, 2, 3)  
+GROUP BY g.genre_id, g.name
+HAVING COUNT(*) >= 100      
+ORDER BY female_ratio_rank ASC;
+
         """
         cols_m2_q4, rows_m2_q4 = run_query(sql_m2_q4, (min_genre_movies * 2,))
         if rows_m2_q4:
@@ -548,29 +548,29 @@ with tab2:
     st.subheader("Q5. Movie Production & Average Revenue Trend by Decade (with LAG Growth %)")
     sql_m2_q5 = """
         WITH decade_stats AS (
-            SELECT
-                (FLOOR(EXTRACT(YEAR FROM release_date) / 10) * 10)::INTEGER AS decade,
-                COUNT(*) AS total_movies,
-                COUNT(revenue) AS movies_with_revenue,
-                ROUND(AVG(revenue), 0) AS avg_revenue
-            FROM movies
-            WHERE release_date IS NOT NULL
-            GROUP BY FLOOR(EXTRACT(YEAR FROM release_date) / 10) * 10
-            HAVING COUNT(revenue) >= 10
-        )
-        SELECT
-            decade,
-            total_movies,
-            movies_with_revenue,
-            avg_revenue,
-            ROUND(
-                100.0 * (avg_revenue - LAG(avg_revenue) OVER (ORDER BY decade))
-                / NULLIF(LAG(avg_revenue) OVER (ORDER BY decade), 0),
-                2
-            ) AS revenue_growth_pct
-        FROM decade_stats
-        WHERE decade BETWEEN %s AND %s
-        ORDER BY decade ASC;
+    SELECT
+        (FLOOR(EXTRACT(YEAR FROM release_date) / 10) * 10)::INTEGER AS decade,
+        COUNT(*) AS total_movies,
+        COUNT(revenue) AS movies_with_revenue,
+        ROUND(AVG(revenue), 0) AS avg_revenue
+    FROM movies
+    WHERE release_date IS NOT NULL
+    GROUP BY FLOOR(EXTRACT(YEAR FROM release_date) / 10) * 10
+    HAVING COUNT(revenue) >= 10  
+)
+SELECT
+    decade,
+    total_movies,
+    movies_with_revenue,
+    avg_revenue,
+    ROUND(
+        100.0 * (avg_revenue - LAG(avg_revenue) OVER (ORDER BY decade))
+        / NULLIF(LAG(avg_revenue) OVER (ORDER BY decade), 0),
+        2
+    ) AS revenue_growth_pct
+FROM decade_stats
+ORDER BY decade ASC;
+
     """
     cols_m2_q5, rows_m2_q5 = run_query(sql_m2_q5, (decade_range[0], decade_range[1]))
     if rows_m2_q5:
